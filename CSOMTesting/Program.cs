@@ -22,6 +22,7 @@ await Example2(siteUrl, bearerToken);
 await Example3(siteUrl, bearerToken);
 await Example4(siteUrl, clientId, clientSecret, bearerToken, tenantId);
 await Example5(siteUrl, bearerToken);
+await Example6(siteUrl, clientId, clientSecret, tenantId);
 
 static void Example1(string siteUrl, string clientId, string bearerToken)
 {
@@ -139,5 +140,54 @@ async Task Example5(string siteUrl, string bearerToken)
 		Console.ForegroundColor = ConsoleColor.Red;
 		Console.WriteLine($"Example5 Failed: {ex.Message}");
 		Console.ResetColor();
+	}
+}
+
+async Task Example6(string siteUrl, string clientId, string clientSecret, string tenantId)
+{
+	var authorities = new List<string>
+	{
+		$"https://login.microsoftonline.com/{tenantId}",
+		$"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize",
+		$"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token",
+		$"https://login.microsoftonline.com/{tenantId}/oauth2/authorize",
+		$"https://login.microsoftonline.com/{tenantId}/oauth2/token",
+		$"https://login.microsoftonline.com/{tenantId}/v2.0/.well-known/openid-configuration",
+		"https://graph.microsoft.com",
+		$"https://login.microsoftonline.com/{tenantId}/federationmetadata/2007-06/federationmetadata.xml",
+		$"https://login.microsoftonline.com/{tenantId}/wsfed",
+		$"https://login.microsoftonline.com/{tenantId}/saml2"
+	};
+
+	foreach (var authority in authorities)
+	{
+		try
+		{
+			var clientApplication = ConfidentialClientApplicationBuilder.Create(clientId)
+				.WithClientSecret(clientSecret)
+				.WithAuthority(new Uri(authority))
+				.Build();
+
+			var result = await clientApplication.AcquireTokenForClient(scopes).ExecuteAsync();
+			var bearerToken = result.AccessToken;
+
+			using (var client = new HttpClient())
+			{
+				client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+				client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json;odata=nometadata");
+
+				var rawJson = await client.GetStringAsync($"{siteUrl}/_api/web?$select=Title");
+
+				Console.ForegroundColor = ConsoleColor.Green;
+				Console.WriteLine(rawJson);
+				Console.ResetColor();
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.WriteLine($"Example6 Authority '{authority}' Failed: {ex.Message}");
+			Console.ResetColor();
+		}
 	}
 }
