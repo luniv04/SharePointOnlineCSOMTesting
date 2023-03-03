@@ -2,6 +2,7 @@
 using Microsoft.SharePoint.Client;
 using PnP.Framework;
 using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
 
 var scopes = new[] { "https://microsoft.sharepoint-df.com/.default" };
 var tenantId = "6397730c-2970-4413-b48f-1abf00895d39";
@@ -23,6 +24,7 @@ await Example3(siteUrl, bearerToken);
 await Example4(siteUrl, clientId, clientSecret, bearerToken, tenantId);
 await Example5(siteUrl, bearerToken);
 await Example6(siteUrl, clientId, clientSecret, tenantId);
+await Example7(siteUrl, clientId, clientSecret, tenantId);
 
 static void Example1(string siteUrl, string clientId, string bearerToken)
 {
@@ -189,5 +191,49 @@ async Task Example6(string siteUrl, string clientId, string clientSecret, string
 			Console.WriteLine($"Example6 Authority '{authority}' Failed: {ex.Message}");
 			Console.ResetColor();
 		}
+	}
+}
+
+async Task Example7(string siteUrl, string clientId, string clientSecret, string tenantId)
+{
+	try
+	{
+		string certThumbPrint = "64c52dc51ef8cd01410752671d03dc872e05d66a";
+		X509Store certStore = new X509Store(StoreName.My, StoreLocation.CurrentUser);
+		// Try to open the store.
+
+		certStore.Open(OpenFlags.ReadOnly);
+		// Find the certificate that matches the thumbprint.
+		X509Certificate2Collection certCollection = certStore.Certificates.Find(
+			X509FindType.FindByThumbprint, certThumbPrint, false);
+		certStore.Close();
+
+		var firstCert = certCollection[0];
+
+		var clientApplication = ConfidentialClientApplicationBuilder.Create(clientId)
+			.WithCertificate(firstCert)
+			.WithAuthority(new Uri($"https://login.microsoftonline.com/{tenantId}"))
+			.Build();
+
+		var result = await clientApplication.AcquireTokenForClient(scopes).ExecuteAsync();
+		var bearerToken = result.AccessToken;
+
+		using (var client = new HttpClient())
+		{
+			client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+			client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json;odata=nometadata");
+
+			var rawJson = await client.GetStringAsync($"{siteUrl}/_api/web?$select=Title");
+
+			Console.ForegroundColor = ConsoleColor.Green;
+			Console.WriteLine(rawJson);
+			Console.ResetColor();
+		}
+	}
+	catch (Exception ex)
+	{
+		Console.ForegroundColor = ConsoleColor.Red;
+		Console.WriteLine($"Example7 Failed: {ex.Message}");
+		Console.ResetColor();
 	}
 }
