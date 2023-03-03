@@ -18,6 +18,7 @@ var clientApplication = ConfidentialClientApplicationBuilder.Create(clientId)
 var result = await clientApplication.AcquireTokenForClient(scopes).ExecuteAsync();
 var bearerToken = result.AccessToken;
 
+Example0(siteUrl, clientId, clientSecret);
 Example1(siteUrl, clientId, bearerToken);
 await Example2(siteUrl, bearerToken);
 await Example3(siteUrl, bearerToken);
@@ -25,9 +26,34 @@ await Example4(siteUrl, clientId, clientSecret, bearerToken, tenantId);
 await Example5(siteUrl, bearerToken);
 await Example6(siteUrl, clientId, clientSecret, tenantId);
 await Example7(siteUrl, clientId, clientSecret, tenantId);
+Example8(siteUrl, clientId, bearerToken);
 
+// See https://answers.microsoft.com/en-us/msoffice/forum/all/sharepoint-app-only-add-ins-throwing-401/962bfaa2-8604-4e94-ae1c-36ef5b453ed2
+// See https://www.sharepointdiary.com/2019/06/sharepoint-online-remote-server-returned-an-error-401-unauthorized.html#:~:text=Legacy%20authentication%20protocol%20is%20enabled%3F%20Check%20if%20the,enable%20it%20with%20the%20following%3A%20Set-SPOTenant%20-LegacyAuthProtocolsEnabled%20%24True
 // "Get-PnPTenant | select LegacyAuthProtocolsEnabled" already is set to true.
 // Tried using "Set-PnPTenant -DisableCustomAppAuthentication $false" because this setting was originally true but its not helping.
+
+static void Example0(string siteUrl, string clientId, string clientSecret)
+{
+	try
+	{
+		using (var ctx = new AuthenticationManager().GetACSAppOnlyContext(siteUrl, clientId, clientSecret))
+		{
+			ctx.Load(ctx.Web, web => web.Title);
+			ctx.ExecuteQuery();
+
+			Console.ForegroundColor = ConsoleColor.Green;
+			Console.WriteLine(ctx.Web.Title);
+			Console.ResetColor();
+		}
+	}
+	catch (Exception ex)
+	{
+		Console.ForegroundColor = ConsoleColor.Red;
+		Console.WriteLine($"Example0 Failed: {ex.Message}");
+		Console.ResetColor();
+	}
+}
 
 static void Example1(string siteUrl, string clientId, string bearerToken)
 {
@@ -237,6 +263,32 @@ async Task Example7(string siteUrl, string clientId, string clientSecret, string
 	{
 		Console.ForegroundColor = ConsoleColor.Red;
 		Console.WriteLine($"Example7 Failed: {ex.Message}");
+		Console.ResetColor();
+	}
+}
+
+static void Example8(string siteUrl, string clientId, string bearerToken)
+{
+	try
+	{
+		using (var ctx = new AuthenticationManager().GetACSAppOnlyContext(siteUrl, clientId, bearerToken))
+		{
+			ctx.ExecutingWebRequest += (sender, e) =>
+			{
+				e.WebRequestExecutor.RequestHeaders["Authorization"] = "Bearer " + bearerToken;
+			};
+			ctx.Load(ctx.Web, web => web.Title);
+			ctx.ExecuteQuery();
+
+			Console.ForegroundColor = ConsoleColor.Green;
+			Console.WriteLine(ctx.Web.Title);
+			Console.ResetColor();
+		}
+	}
+	catch (Exception ex)
+	{
+		Console.ForegroundColor = ConsoleColor.Red;
+		Console.WriteLine($"Example8 Failed: {ex.Message}");
 		Console.ResetColor();
 	}
 }
