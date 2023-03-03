@@ -26,6 +26,9 @@ await Example5(siteUrl, bearerToken);
 await Example6(siteUrl, clientId, clientSecret, tenantId);
 await Example7(siteUrl, clientId, clientSecret, tenantId);
 
+// "Get-PnPTenant | select LegacyAuthProtocolsEnabled" already is set to true.
+// Tried using "Set-PnPTenant -DisableCustomAppAuthentication $false" because this setting was originally true but its not helping.
+
 static void Example1(string siteUrl, string clientId, string bearerToken)
 {
 	try
